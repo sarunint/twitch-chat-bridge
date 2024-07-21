@@ -1,0 +1,40 @@
+name: build
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Validate Gradle wrapper
+        uses: gradle/wrapper-validation-action@v1
+      - name: Initialise JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: 21
+          distribution: 'microsoft'
+      - name: Replace version number in gradle.properties
+        if: ${{ github.event.created && startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          sed -i -e "s|0.0.0-PLACEHOLDER|$(echo "${{ github.ref }}" | sed -e "s|refs/tags/v||g" -)|g" gradle.properties
+          cat gradle.properties
+      - name: Build
+        run: ./gradlew build
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: Artifacts
+          path: build/libs/
+      - name: Publish
+        uses: Kir-Antipov/mc-publish@v3.3
+        if: ${{ github.event.created && startsWith(github.ref, 'refs/tags/') }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
